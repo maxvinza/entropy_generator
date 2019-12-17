@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 tsdb = { path = "../libtsdb" }
+sys-info = "0.5.8"

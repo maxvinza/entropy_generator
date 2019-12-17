@@ -14,6 +14,7 @@ use tsdb::{
     Parameter,
     ReportId,
 };
+use sys_info::*;
 
 
 fn main() {
@@ -54,8 +55,8 @@ fn main() {
                 match wait_type {
                     1 => num_parameters = argument.parse::<usize>().unwrap_or(0),
                     2 => num_objects = argument.parse::<usize>().unwrap_or(0),
-                    3 => time_start = argument.parse::<u64>().unwrap_or(0),
-                    4 => time_end = argument.parse::<u64>().unwrap_or(0),
+                    3 => time_start = unix_time() - argument.parse::<u64>().unwrap_or(0),
+                    4 => time_end = unix_time() - argument.parse::<u64>().unwrap_or(0),
                     10 => id_parameter = argument.parse::<u32>().unwrap_or(0),
                     20 => id_object = argument.parse::<u32>().unwrap_or(0),
                     _ => {},
@@ -101,10 +102,10 @@ fn write_data(mut rrdb: RRDB, reportid_vec: Vec<ReportId>) {
     println!("Write mode start!");
     loop {
         for report_id in reportid_vec.iter() {
-            let x1 = (report_id.parameter % 15) as f32;
-            let x2 = (report_id.object % 15) as f32;
-            let data = (100.0 * (x1 * x1.cos() + x2 * x2.sin())).floor() as i64;
-
+            let x1 = report_id.parameter as f64;
+            let x2 = report_id.object as f64;
+            let mem = mem_info().unwrap();
+            let data: i64 = (100.0 * (x1.cos() + x2.sin())).floor() as i64 + mem.free as i64;
             rrdb.push_report(*report_id, data).unwrap();
 
             println!(
@@ -115,7 +116,13 @@ fn write_data(mut rrdb: RRDB, reportid_vec: Vec<ReportId>) {
                 unix_time()
             );
         }
-        
+
+        let mem = mem_info().unwrap();
+        println!(
+            "Mem: total {} KB, free {} KB, avail {} KB, buffers {} KB, cached {} KB",
+            mem.total, mem.free, mem.avail, mem.buffers, mem.cached
+        );
+
         thread::sleep(Duration::from_secs(1));
     }
 }
