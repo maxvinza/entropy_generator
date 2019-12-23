@@ -26,17 +26,24 @@ fn main() {
     let mut time_end = unix_time();
     let mut wait_type = 0;
     let mut read_mode = false;
+    let mut detal_level = 0;
 
     for arg in env::args() {
         let argument = arg.as_str();
         match argument {
             "-h" => {
-                println!("entropy_generator - test programm for make timeseries\n\
-                Usage for write: entropy_generator -p 60 -o 50\n\
-                where 60 - numeric of parameters, default 1;\n\
+                println!("\n\
+                entropy_generator - test programm for make timeseries\n\
+                -------------------------------------------------------------------------------------------\n\
+                Usage for write: entropy_generator -p 60 -o 50 [-detal 1]\n\
+                Where:\n\
+                60 - numeric of parameters, default 1;\n\
                 50 - numeric of objects, default 1\n\
+                1 - load detal log (0 - memoty + alarm, 1 - detal)\n\
+                -------------------------------------------------------------------------------------------\n\
                 Usage for reading: entropy_generator -read -p 60 -o 50 -pr 2 -po 3 -i 3600 [-end 1200]\n\
-                where 60 - numeric of parameters, default 1;\n\
+                Where:\n\
+                60 - numeric of parameters, default 1;\n\
                 50 - numeric of objects, default 1\n\
                 2 - id of need parameter, default 1\n\
                 3 - id of need object, default 1\n\
@@ -51,12 +58,14 @@ fn main() {
             "-po" => wait_type = 20,
             "-i" => wait_type = 3,
             "-end" => wait_type = 4,
+            "-detal" => wait_type = 5,
             _ => {
                 match wait_type {
                     1 => num_parameters = argument.parse::<usize>().unwrap_or(0),
                     2 => num_objects = argument.parse::<usize>().unwrap_or(0),
                     3 => time_start = unix_time() - argument.parse::<u64>().unwrap_or(0),
                     4 => time_end = unix_time() - argument.parse::<u64>().unwrap_or(0),
+                    5 => detal_level = 1,
                     10 => id_parameter = argument.parse::<u32>().unwrap_or(0),
                     20 => id_object = argument.parse::<u32>().unwrap_or(0),
                     _ => {},
@@ -76,7 +85,7 @@ fn main() {
         };
         read_data(rrdb, report_id, time_start, time_end);
     } else {
-        write_data(rrdb, report_id_vec);
+        write_data(rrdb, report_id_vec, detal_level);
     }
 }
 
@@ -98,7 +107,7 @@ fn read_data(mut rrdb: RRDB, report_id: ReportId, time_start: u64, time_end: u64
 }
 
 
-fn write_data(mut rrdb: RRDB, reportid_vec: Vec<ReportId>) {
+fn write_data(mut rrdb: RRDB, reportid_vec: Vec<ReportId>, detal_level: u8) {
     println!("Write mode start!");
     loop {
         for report_id in reportid_vec.iter() {
@@ -108,13 +117,15 @@ fn write_data(mut rrdb: RRDB, reportid_vec: Vec<ReportId>) {
             let data: i64 = (100.0 * (x1.cos() + x2.sin())).floor() as i64 + mem.free as i64;
             rrdb.push_report(*report_id, data).unwrap();
 
-            println!(
-                "Data added - parameter: {:x},  object: {:x}, data: {:x}, time: {:x}",
-                report_id.parameter,
-                report_id.object,
-                data,
-                unix_time()
-            );
+            if detal_level > 0 {
+                println!(
+                    "Data added - parameter: {:x},  object: {:x}, data: {:x}, time: {:x}",
+                    report_id.parameter,
+                    report_id.object,
+                    data,
+                    unix_time()
+                );
+            }
         }
 
         let mem = mem_info().unwrap();
@@ -145,7 +156,7 @@ fn make_config(rrdb: &mut RRDB, num_objects: usize, num_parameters: usize) -> Ve
         let mut parameter = Parameter::new(&parameter_name, "test parameter");
 
         if num % 5 == 0 {
-            parameter.aproxy_time = 5;
+            parameter.aproxy_time = 10;
         }
 
         for id in object_id.iter_mut() {
